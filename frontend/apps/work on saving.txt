@@ -1,8 +1,3 @@
-https://blog.logrocket.com/authentication-svelte-using-cookies/
-
-https://github.com/iamhabbeboy/sveltekit-auth
-
-
 DONE - work on saving to sql3 or pocketbase ( decide which one)
 FileName - TimeUploaded - FileSize - DiscordLink - FileSplitAmount - File split names
 str - str - int - array with str - int - array with str
