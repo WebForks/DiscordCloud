@@ -1,0 +1,127 @@
+<script>
+	import { writable } from 'svelte/store';
+	import { onMount } from 'svelte';
+
+	let file; // The selected file
+	let uploading = false;
+	const uploadPercentage = writable(0); // Using a writable store for reactivity
+	let files = writable([]); // Store for the fetched files
+
+	// Refactored fetching logic into a function
+	async function fetchFiles() {
+		const response = await fetch('/api/getData');
+		if (response.ok) {
+			const result = await response.json();
+			const parsedData = result.files.map((file) => ({
+				...file,
+				DiscordLink: JSON.parse(file.DiscordLink),
+				FileSplitNames: JSON.parse(file.FileSplitNames)
+			}));
+			files.set(parsedData);
+		} else {
+			console.error('Failed to fetch files');
+		}
+	}
+
+	onMount(() => {
+		fetchFiles(); // Call it on component mount
+	});
+
+	async function uploadFile() {
+		if (!file) return;
+
+		const formData = new FormData();
+		formData.append('file', file);
+
+		uploading = true;
+		uploadPercentage.set(0);
+
+		const xhr = new XMLHttpRequest();
+		xhr.open('POST', '/api/upload');
+
+		xhr.upload.onprogress = function (event) {
+			if (event.lengthComputable) {
+				const percentage = (event.loaded / event.total) * 100;
+				uploadPercentage.set(percentage.toFixed(2));
+			}
+		};
+
+		xhr.onload = async function () {
+			if (xhr.status === 200) {
+				console.log('Upload successful');
+				await fetchFiles(); // Refresh the files list after successful upload
+				console.log('table updated');
+			} else {
+				console.error('Upload failed with status:', xhr.status);
+			}
+			uploading = false;
+		};
+
+		xhr.onerror = function () {
+			console.error('Error uploading file');
+			uploading = false;
+		};
+
+		xhr.send(formData);
+	}
+
+	function handleFileChange(event) {
+		file = event.target.files[0];
+	}
+</script>
+
+<!-- File Selection -->
+<div class="flex flex-col items-center justify-center my-4">
+	<input type="file" on:change={handleFileChange} class="mb-2" />
+
+	<!-- Progress Bar -->
+	{#if uploading}
+		<progress value={$uploadPercentage} max="100" class="w-full mb-2"></progress>
+		<p>Uploading: {$uploadPercentage}%</p>
+	{/if}
+
+	<!-- Upload Button -->
+	<button
+		on:click={uploadFile}
+		disabled={uploading}
+		class="btn bg-green-500 hover:bg-red-500 text-white py-2 px-4 rounded"
+	>
+		Upload File
+	</button>
+</div>
+
+<!-- Table with white borders -->
+<div class="overflow-x-auto">
+	<table class="table-auto w-full text-xs sm:text-sm border-separate" style="border-spacing: 0;">
+		<thead>
+			<tr>
+				<th class="border border-white">File Name</th>
+				<th class="hidden sm:table-cell border border-white">Time Uploaded</th>
+				<th class="hidden md:table-cell border border-white">File Size</th>
+				<th class="border border-white">Discord Link(s)</th>
+				<th class="hidden lg:table-cell border border-white">File Split Amount</th>
+				<th class="border border-white">File Split Names</th>
+			</tr>
+		</thead>
+		<tbody>
+			{#each $files as file}
+				<tr class="hover:bg-slate-400">
+					<td class="border border-white px-2 py-1">{file.FileName}</td>
+					<td class="hidden sm:table-cell border border-white px-2 py-1">{file.TimeUploaded}</td>
+					<td class="hidden md:table-cell border border-white px-2 py-1">{file.FileSize}</td>
+					<td class="border border-white px-2 py-1">
+						{#each file.DiscordLink as link}
+							<a href={link} target="_blank" class="text-blue-500 hover:underline">{link}</a><br />
+						{/each}
+					</td>
+					<td class="hidden lg:table-cell border border-white px-2 py-1">{file.FileSplitAmount}</td>
+					<td class="border border-white px-2 py-1">
+						{#each file.FileSplitNames as name}
+							{name}<br />
+						{/each}
+					</td>
+				</tr>
+			{/each}
+		</tbody>
+	</table>
+</div>

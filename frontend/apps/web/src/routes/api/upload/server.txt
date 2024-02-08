@@ -1,0 +1,98 @@
+import fs from 'fs';
+import { pipeline } from 'stream';
+import { promisify } from 'util';
+import path from 'path';
+import { Client, GatewayIntentBits } from 'discord.js';
+
+const discord_token = ""
+const channel_id = ""
+
+const pipe = promisify(pipeline);
+
+// Initialize Discord client with necessary intents
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+});
+
+// Helper function to ensure the upload directory exists
+async function ensureUploadDir(filePath) {
+  const dirName = path.dirname(filePath);
+  if (!fs.existsSync(dirName)) {
+    await fs.promises.mkdir(dirName, { recursive: true });
+  }
+}
+
+// Function to split the file and initiate upload to Discord
+async function Split(originalFilePath, partSize = 25165824) {
+  const readStream = fs.createReadStream(originalFilePath);
+  let partNum = 0;
+  let partPath;
+    console.log("Splitting file")
+  for await (const chunk of readStream) {
+    if (partNum * partSize >= fs.statSync(originalFilePath).size) {
+      break; // Stop if the last part size is reached
+    }
+    console.log(`Writing part ${partNum + 1}`);
+    partPath = `${originalFilePath}-${++partNum}.txt`;
+    await fs.promises.writeFile(partPath, chunk);
+    // Upload part to Discord
+    console.log("Starting upload to Discord")
+    await uploadToDiscord(partPath, channel_id);
+    console.log(`Part ${partNum} uploaded to Discord.`);
+  }
+
+  console.log(`File has been split into ${partNum} parts.`);
+
+    await fs.promises.unlink(originalFilePath);
+  console.log(`Original file ${originalFilePath} has been deleted.`);
+}
+
+// Function to upload a file to Discord and log the attachment URL
+async function uploadToDiscord(filePath, channelId) {
+    try {
+      // Check if client is already logged in; if not, log in
+      if (!client.isReady()) {
+        await client.login(discord_token);
+        console.log("Logged in successfully.");
+      }
+  
+      const channel = await client.channels.fetch(channelId);
+      if (!channel) throw new Error('Channel not found');
+  
+      const message = await channel.send({ files: [filePath] });
+      console.log(`Uploaded ${filePath} to Discord. File URL: ${message.attachments.first().url}`);
+  
+      // Delete the file after uploading
+      await fs.promises.unlink(filePath);
+    } catch (error) {
+      console.error("Failed to upload to Discord:", error);
+      // Depending on your use case, you can choose to re-throw the error
+      // or handle it (e.g., by returning a specific message or error code)
+      throw error; // or return a specific error message/response
+    }
+  }
+  
+export async function POST({ request }) {
+  const formData = await request.formData();
+  const file = formData.get('file'); // Assuming 'file' is the name of your file input field
+  console.log("Got file")
+
+  if (file) {
+    const uploadPath = path.join('./uploads', file.name);
+    await ensureUploadDir(uploadPath); // Ensure the directory exists
+
+    // Save the uploaded file temporarily
+    await pipe(file.stream(), fs.createWriteStream(uploadPath));
+    console.log(`File saved to ${uploadPath}`);
+
+    // Split the file and upload parts to Discord
+    await Split(uploadPath);
+    console.log('File split and uploaded to Discord.');
+
+    return new Response('File uploaded and processed successfully.', { status: 200 });
+  }
+
+  return new Response('No file uploaded.', { status: 400 });
+}
+
+client.login(discord_token); // Log in to the Discord bot

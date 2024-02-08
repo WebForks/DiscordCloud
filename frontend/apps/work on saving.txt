@@ -1,0 +1,23 @@
+https://blog.logrocket.com/authentication-svelte-using-cookies/
+
+https://github.com/iamhabbeboy/sveltekit-auth
+
+
+DONE - work on saving to sql3 or pocketbase ( decide which one)
+FileName - TimeUploaded - FileSize - DiscordLink - FileSplitAmount - File split names
+str - str - int - array with str - int - array with str
+
+
+DONE - display saved content on discord on inital file page  
+
+DONE - prettyify the browse file, upload file button, and table
+
+- add download button that will let you download  the saved files and piece together
+
+- add search bar to search files and add sort to sort files by numerical or filesize from greatest to least or least to greatest and time uploaded
+
+- add delete button that deletes specific row from db or all row and deletes message from discord on the table page as an option
+
+- find out bug on why sometimes it stalls on 
+      if (!client.isReady()) {
+        await client.login(discord_token);

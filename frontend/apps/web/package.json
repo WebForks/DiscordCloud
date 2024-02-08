@@ -1,0 +1,29 @@
+{
+	"name": "web",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "^2.0.0",
+		"@sveltejs/kit": "^1.30.3",
+		"autoprefixer": "^10.4.14",
+		"daisyui": "^3.8.2",
+		"object-to-formdata": "^4.5.1",
+		"postcss": "^8.4.24",
+		"postcss-load-config": "^4.0.1",
+		"svelte": "^4.0.5",
+		"tailwindcss": "^3.3.2",
+		"vite": "^4.4.2",
+		"zod": "^3.22.4"
+	},
+	"type": "module",
+	"dependencies": {
+		"better-sqlite3": "^9.4.0",
+		"discord.js": "^14.14.1",
+		"pocketbase": "^0.18.0"
+	}
+}
