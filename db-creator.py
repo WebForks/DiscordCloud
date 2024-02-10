@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-db_path = r"file.db"
+db_path = r"C:\Users\Ethan Liu\Desktop\repos\DiscordCloud\db\file.db"
 '''
 # CREATES NEW DB
 # Define the connection and cursor

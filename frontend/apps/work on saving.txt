@@ -14,6 +14,11 @@ put back together
 
 DONE - find out how to get file attachment url that is uptodate from message link and then download file
 
+Done I think ??? added const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  rest: { timeout: 50_000 }
+});
+in /upload api +server.js
 - find out why client sometimes does not ready
 
 INCREASE restRequestTimeout in ClientOptions if you get RequestAbortedError [AbortError]: Request aborted.  Think it is caused by

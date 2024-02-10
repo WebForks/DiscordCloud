@@ -11,13 +11,14 @@ console.log(DISCORD_TOKEN);
 console.log(CHANNEL_ID);
 console.log(DB_PATH);
 
-
+// 25165824
 const db = new Database(DB_PATH);
 const pipe = promisify(pipeline);
 
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  rest: { timeout: 50_000 }
 });
 
 async function ensureUploadDir(filePath) {
@@ -26,15 +27,20 @@ async function ensureUploadDir(filePath) {
     await fs.promises.mkdir(dirName, { recursive: true });
   }
 }
+const discordClientReady = new Promise((resolve, reject) => {
+  client.once('ready', () => {
+      console.log('Discord client is ready!');
+      resolve();
+  });
+});
+
+// Log in to the Discord client
+client.login(DISCORD_TOKEN).catch(console.error);
 
 async function uploadToDiscord(filePath, channelId) {
   try {
       console.log("is client ready?", client.isReady());
-      if (!client.isReady()) {
-          console.log("is client ready2?", client.isReady());
-          await client.login(DISCORD_TOKEN);
-          console.log("Logged in successfully.");
-      }
+      await discordClientReady;
 
       const channel = await client.channels.fetch(channelId);
       if (!channel) throw new Error('Channel not found');
@@ -62,7 +68,7 @@ async function uploadToDiscord(filePath, channelId) {
   }
 }
 
-async function Split(originalFilePath, partSize = 10000000) {
+async function Split(originalFilePath, partSize = 25165824 ) {
   return new Promise((resolve, reject) => {
       const pythonExecutable = 'python'; // or 'python3', depending on your environment
       const scriptPath = './src/routes/api/upload/split_file.py'; // Adjust to the actual location of your Python script
@@ -97,7 +103,7 @@ async function Split(originalFilePath, partSize = 10000000) {
 
 async function processAndUpload(originalFilePath, channelId) {
   // Step 1: Split the file using the Python script
-  const fileSplitNames = await Split(originalFilePath, 10000000); // Adjust the part size as needed
+  const fileSplitNames = await Split(originalFilePath, 25165824); // Adjust the part size as needed
 
   // Initialize variables for Discord uploads
   const DiscordLink = [];
