@@ -31,6 +31,6 @@ DONE - add search bar to search files and add sort to sort files by numerical or
 
 - add delete button that deletes specific row from db or all row and deletes message from discord on the table page as an option
 
-- find out bug on why sometimes it stalls on 
+DONE - find out bug on why sometimes it stalls on 
       if (!client.isReady()) {
         await client.login(discord_token);

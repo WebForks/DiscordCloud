@@ -109,6 +109,27 @@
 			console.error('Error downloading file:', error);
 		}
 	}
+
+	async function deleteFile(fileName, timeUploaded, fileSize) {
+		try {
+			const response = await fetch('/api/delete', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					FileName: fileName,
+					TimeUploaded: timeUploaded,
+					FileSize: fileSize
+				})
+			});
+			if (!response.ok) throw new Error('Failed to delete file');
+			console.log('File deleted successfully');
+			await fetchFiles(); // Refresh the files list after deletion
+		} catch (error) {
+			console.error('Error deleting file:', error);
+		}
+	}
 </script>
 
 <!-- File Selection -->
@@ -151,6 +172,7 @@
 				<th class="hidden lg:table-cell border border-white">File Split Amount</th>
 				<th class="border border-white">File Split Names</th>
 				<th class="border border-white">Downloads</th>
+				<th class="border border-white">Delete</th>
 				<!-- Added column for actions -->
 			</tr>
 		</thead>
@@ -180,6 +202,14 @@
 							class="btn bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded"
 						>
 							Download
+						</button>
+					</td>
+					<td class="border border-white px-2 py-1">
+						<button
+							on:click={() => deleteFile(file.FileName, file.TimeUploaded, file.FileSize)}
+							class="btn bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded"
+						>
+							Delete
 						</button>
 					</td>
 				</tr>
