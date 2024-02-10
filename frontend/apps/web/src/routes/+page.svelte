@@ -71,6 +71,37 @@
 	function handleFileChange(event) {
 		file = event.target.files[0];
 	}
+
+	async function downloadFile(fileName, timeUploaded) {
+		try {
+			const response = await fetch(
+				`/api/download?fileName=${encodeURIComponent(fileName)}&timeUploaded=${encodeURIComponent(
+					timeUploaded
+				)}`,
+				{
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				}
+			);
+			if (!response.ok) throw new Error('Failed to download file');
+
+			// Assuming the server responds with the binary data of the reconstructed file
+			const blob = await response.blob();
+			const url = window.URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = fileName; // Set the file name for download
+			document.body.appendChild(a); // Append to body to make it "clickable"
+			a.click();
+			a.remove(); // Clean up
+
+			window.URL.revokeObjectURL(url); // Free up memory
+		} catch (error) {
+			console.error('Error downloading file:', error);
+		}
+	}
 </script>
 
 <!-- File Selection -->
@@ -94,6 +125,7 @@
 </div>
 
 <!-- Table with white borders -->
+<!-- Table with white borders -->
 <div class="overflow-x-auto">
 	<table class="table-auto w-full text-base sm:text-sm border-separate" style="border-spacing: 0;">
 		<thead>
@@ -104,6 +136,8 @@
 				<th class="border border-white">Discord Link(s)</th>
 				<th class="hidden lg:table-cell border border-white">File Split Amount</th>
 				<th class="border border-white">File Split Names</th>
+				<th class="border border-white">Downloads</th>
+				<!-- Added column for actions -->
 			</tr>
 		</thead>
 		<tbody>
@@ -125,6 +159,14 @@
 						{#each file.FileSplitNames as name}
 							<div><span class="text-lg font-bold">•</span> {name}</div>
 						{/each}
+					</td>
+					<td class="border border-white px-2 py-1">
+						<button
+							on:click={() => downloadFile(file.FileName, file.TimeUploaded)}
+							class="btn bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded"
+						>
+							Download
+						</button>
 					</td>
 				</tr>
 			{/each}

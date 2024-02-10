@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-db_path = "./db/file.db"
+db_path = r"file.db"
 '''
 # CREATES NEW DB
 # Define the connection and cursor

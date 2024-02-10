@@ -7,6 +7,18 @@ DONE - display saved content on discord on inital file page
 
 DONE - prettyify the browse file, upload file button, and table
 
+DONE - FILE IS SPLITTING AS 66KB INSTEAD OF 24MB 
+
+DONE - DOES NOT WORK.  CONSIDER SWITCHING TO PYTHON FOR SPLITTING AND PUTTING BACK TOGETHER - check if files are mergable/working/can be 
+put back together
+
+DONE - find out how to get file attachment url that is uptodate from message link and then download file
+
+- find out why client sometimes does not ready
+
+INCREASE restRequestTimeout in ClientOptions if you get RequestAbortedError [AbortError]: Request aborted.  Think it is caused by
+large file size and slow upload time
+
 - add download button that will let you download  the saved files and piece together
 
 - add search bar to search files and add sort to sort files by numerical or filesize from greatest to least or least to greatest and time uploaded

@@ -1,0 +1,140 @@
+import { error } from '@sveltejs/kit';
+import Database from 'better-sqlite3';
+import { pipeline } from 'stream';
+import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path'; // Import the path module
+import { DB_PATH } from '$env/static/private';
+import { spawn } from 'child_process';
+
+const streamPipeline = promisify(pipeline);
+
+const dbPath = DB_PATH; // Ensure this is correctly set in your environment variables
+const downloadsDir = './downloads'; // Define the downloads directory path
+
+// Ensure the downloads folder exists
+if (!fs.existsSync(downloadsDir)) {
+    fs.mkdirSync(downloadsDir, { recursive: true });
+}
+
+function getFileInfo(fileName) {
+    const db = new Database(dbPath);
+    const stmt = db.prepare('SELECT * FROM Files WHERE FileName = ?');
+    const fileInfo = stmt.get(fileName);
+    db.close();
+    console.log("fileInfo: ", fileInfo);
+    return fileInfo;
+}
+
+async function downloadAndCombineFiles(discordLinks, fileName) {
+    const partFileNames = await Promise.all(discordLinks.map(async (link, index) => {
+        console.log("link: ", link);
+        const response = await fetch(link);
+        console.log("fetched")
+        console.log(!response.ok)
+        if (!response.ok) throw new Error(`Failed to download file from ${link}`);
+        console.log("working")
+        //console.log("response: ", response);
+
+        console.log("fileName: ", fileName);
+        console.log("downloadsDir: ", downloadsDir);
+
+        const tempFileName = path.join(downloadsDir, `${fileName}-${index+1}.txt`);
+        console.log("tempFileName: ", tempFileName);
+        await streamPipeline(response.body, fs.createWriteStream(tempFileName));
+        console.log("tempFileName: ", tempFileName);
+        return tempFileName;
+    }));
+
+    // Path to the Python combine script
+    const pythonExecutable = 'python'; // or 'python3', depending on your environment
+    const combineScriptPath = './src/routes/api/download/combine_file.py'; // Adjust this path
+    const combinedFileName = path.join(downloadsDir, fileName);
+    console.log("combinedFileName: ", combinedFileName)
+
+    // Convert partFileNames array to JSON string for Python script argument
+    const partFileNamesJson = JSON.stringify(partFileNames);
+    console.log("partFileNamesJson: ", partFileNamesJson)
+
+    return new Promise((resolve, reject) => {
+        const process = spawn(pythonExecutable, [combineScriptPath, partFileNamesJson, combinedFileName]);
+
+        process.stdout.on('data', (data) => {
+            console.log(data.toString());
+        });
+
+        process.stderr.on('data', (data) => {
+            console.error(`stderr: ${data.toString()}`);
+        });
+
+        process.on('close', (code) => {
+            if (code === 0) {
+                console.log('Python script finished successfully');
+                resolve(combinedFileName);
+            } else {
+                reject(new Error(`Python script exited with code ${code}`));
+            }
+        });
+    });
+}
+function clearDownloadsDirectory() {
+    try {
+        const files = fs.readdirSync(downloadsDir);
+        for (const file of files) {
+            fs.unlinkSync(path.join(downloadsDir, file));
+        }
+        console.log('Downloads directory cleared successfully.');
+    } catch (err) {
+        console.error(`Failed to clear downloads directory: ${err.message}`);
+    }
+}
+
+export async function GET({ url }) {
+    const fileName = url.searchParams.get('fileName');
+    if (!fileName) throw error(400, 'FileName is required');
+
+    try {
+        const fileInfo = getFileInfo(fileName);
+        if (!fileInfo) throw error(404, 'File not found');
+
+        console.log("preparing to combineFile");
+        const combinedFileName = await downloadAndCombineFiles(JSON.parse(fileInfo.DiscordLink), fileName);
+        console.log("file combined");
+
+        const file = fs.readFileSync(combinedFileName);
+        fs.unlinkSync(combinedFileName); // Optionally remove the combined file after serving it
+
+        const response = new Response(file, {
+            headers: {
+                'Content-Type': 'application/octet-stream',
+                'Content-Disposition': `attachment; filename="${path.basename(fileName)}"`, // Use path.basename to ensure the filename is correct
+            }
+        });
+        // Optionally remove the combined file after serving it
+        fs.unlinkSync(combinedFileName);
+
+        // Call the cleanup function
+        clearDownloadsDirectory();
+
+        return response;
+    } catch (err) {
+        throw error(500, `Server error: ${err.message}`);
+    }
+}
+
+async function getAttachmentUrlFromMessageUrl(messageUrl) {
+    try {
+        const urlParts = messageUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+        if (!urlParts) throw new Error("Invalid Discord message URL");
+
+        const [, , channelId, messageId] = urlParts;
+        const channel = await discordClient.channels.fetch(channelId);
+        const message = await channel.messages.fetch(messageId);
+        const attachmentUrls = message.attachments.map(attachment => attachment.url);
+        console.log("Attachment URLs:", attachmentUrls);
+        return attachmentUrls;
+    } catch (error) {
+        console.error("Error fetching attachment URLs:", error);
+        throw error; // Rethrow or handle as needed
+    }
+}

@@ -5,6 +5,7 @@ import path from 'path';
 import { Client, GatewayIntentBits } from 'discord.js';
 import Database from 'better-sqlite3';
 import {DISCORD_TOKEN,CHANNEL_ID,DB_PATH } from '$env/static/private';
+import { spawn } from 'child_process';
 
 console.log(DISCORD_TOKEN);
 console.log(CHANNEL_ID);
@@ -13,6 +14,7 @@ console.log(DB_PATH);
 
 const db = new Database(DB_PATH);
 const pipe = promisify(pipeline);
+
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
@@ -26,83 +28,137 @@ async function ensureUploadDir(filePath) {
 }
 
 async function uploadToDiscord(filePath, channelId) {
-    try {
-        console.log(client.isReady());
+  try {
+      console.log("is client ready?", client.isReady());
       if (!client.isReady()) {
-        await client.login(DISCORD_TOKEN);
-        console.log("Logged in successfully.");
+          console.log("is client ready2?", client.isReady());
+          await client.login(DISCORD_TOKEN);
+          console.log("Logged in successfully.");
       }
-  
+
       const channel = await client.channels.fetch(channelId);
       if (!channel) throw new Error('Channel not found');
-  
+
       const message = await channel.send({ files: [filePath] });
-      const fileURL = message.attachments.first().url;
+      const fileURL = message.attachments.first().url; // This gets the file attachment URL.
+
+      // Construct the message URL. Check if it's a guild message to construct the URL.
+      let messageURL = "Direct Message - no URL available"; // Default message.
+      if (message.guild) {
+          messageURL = `https://discord.com/channels/${message.guild.id}/${channelId}/${message.id}`;
+      } else {
+          console.log("Message sent in a DM, no URL can be constructed for the message.");
+      }
+
       console.log(`Uploaded ${filePath} to Discord. File URL: ${fileURL}`);
-  
-      await fs.promises.unlink(filePath);
-      return fileURL;
-    } catch (error) {
+      console.log(`Message URL: ${messageURL}`);
+
+      // Return both URLs
+      //return { fileURL, messageURL };
+      return messageURL;
+  } catch (error) {
       console.error("Failed to upload to Discord:", error);
       throw error;
-    }
+  }
 }
 
-async function Split(originalFilePath, partSize = 25165824) {
-  const fileSize = fs.statSync(originalFilePath).size;
-  const readStream = fs.createReadStream(originalFilePath);
-  let partNum = 0;
-  let DiscordLink = [];
-  let fileSplitNames = [];
-  let timeUploaded = null;
+async function Split(originalFilePath, partSize = 10000000) {
+  return new Promise((resolve, reject) => {
+      const pythonExecutable = 'python'; // or 'python3', depending on your environment
+      const scriptPath = './src/routes/api/upload/split_file.py'; // Adjust to the actual location of your Python script
 
-  console.log("Splitting file");
-  for await (const chunk of readStream) {
-    if (partNum * partSize >= fileSize) {
-      break;
-    }
-    const partPath = `${originalFilePath}-${++partNum}.txt`;
-    await fs.promises.writeFile(partPath, chunk);
-    console.log(`Writing part ${partNum}`);
+      // Execute the Python script with the file path and part size as arguments
+      const process = spawn(pythonExecutable, [scriptPath, originalFilePath, partSize.toString()]);
 
-    const fileURL = await uploadToDiscord(partPath, CHANNEL_ID);
-    DiscordLink.push(fileURL);
-    fileSplitNames.push(partPath);
-    //if (!timeUploaded) timeUploaded = new Date().toISOString();
-    if (!timeUploaded) {
-        const now = new Date();
-        const hours = now.getHours();
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        const hourIn12 = hours % 12 || 12; // Convert 24h to 12h format
-        const month = (now.getMonth() + 1).toString().padStart(2, '0'); // JS months are 0-indexed
-        const day = now.getDate().toString().padStart(2, '0');
-        const year = now.getFullYear();
-        timeUploaded = `${hourIn12}:${minutes} ${ampm} ${month}/${day}/${year}`;
-    }
-    
-  }
+      let dataString = '';
+      process.stdout.on('data', (data) => {
+          dataString += data.toString();
+      });
 
-  console.log(`File has been split into ${partNum} parts.`);
+      process.stderr.on('data', (data) => {
+          console.error(`stderr: ${data.toString()}`);
+      });
+
+      process.on('close', (code) => {
+          if (code === 0) {
+              console.log('Python script finished successfully');
+              try {
+                  const fileSplitNames = JSON.parse(dataString); // Parse the JSON output from the Python script
+                  resolve(fileSplitNames);
+              } catch (error) {
+                  reject(error);
+              }
+          } else {
+              reject(new Error(`Python script exited with code ${code}`));
+          }
+      });
+  });
+}
+
+async function processAndUpload(originalFilePath, channelId) {
+  // Step 1: Split the file using the Python script
+  const fileSplitNames = await Split(originalFilePath, 10000000); // Adjust the part size as needed
+
+  // Initialize variables for Discord uploads
+  const DiscordLink = [];
+  const fileSize = fs.statSync(originalFilePath).size; // Get the original file size
+  //const timeUploaded = new Date().toISOString(); // ISO format for the upload time
+  const timeUploaded = null; // Use null to let the function generate the time
+  let partNum = fileSplitNames.length; // The number of parts split by the Python script
+
+  // Step 2: Delete the original file
   await fs.promises.unlink(originalFilePath);
   console.log(`Original file ${originalFilePath} has been deleted.`);
+  
 
+  // Step 3: Upload split parts to Discord
+  for (const filePath of fileSplitNames) {
+      try {
+          const fileURL = await uploadToDiscord(filePath, channelId);
+          DiscordLink.push(fileURL);
+          console.log("DiscordLink: ", DiscordLink);
+          console.log(`Uploaded ${filePath} to Discord. File URL: ${fileURL}`);
+
+          // Optionally, delete the part file after successful upload
+          await fs.promises.unlink(filePath);
+          console.log(`Deleted part file ${filePath}.`);
+      } catch (error) {
+          console.error(`Failed to upload ${filePath} to Discord:`, error);
+          // Optionally handle upload failure, like retrying
+      }
+  }
+  console.log("Final DiscordLink: ", DiscordLink);
+  // Step 4: Insert file data into SQLite
   insertFileData(path.basename(originalFilePath), timeUploaded, fileSize, DiscordLink, partNum, fileSplitNames);
 }
 
+
+
 function insertFileData(fileName, timeUploaded, fileSize, DiscordLink, fileSplitAmount, fileSplitNames) {
+  if (!timeUploaded) {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hourIn12 = hours % 12 || 12; // Convert 24h to 12h format
+    const month = (now.getMonth() + 1).toString().padStart(2, '0'); // JS months are 0-indexed
+    const day = now.getDate().toString().padStart(2, '0');
+    const year = now.getFullYear();
+    timeUploaded = `${hourIn12}:${minutes} ${ampm} ${month}/${day}/${year}`;
+  }
     // Process each DiscordLink to remove "?ex" and everything after it, while keeping ".txt"
-    const processedLinks = DiscordLink.map(link => {
-        return link.replace(/\?ex[^\s]*/, ''); // Updated regex
-    });
+    //const processedLinks = DiscordLink.map(link => {
+    //    return link.replace(/\?ex[^\s]*/, ''); // Updated regex
+    //});
     const processedFileSplitNames = fileSplitNames.map(name => name.replace(/^uploads\\/, ''));
 
     const insert = db.prepare(`INSERT INTO files (fileName, timeUploaded, fileSize, DiscordLink, fileSplitAmount, fileSplitNames) VALUES (?, ?, ?, ?, ?, ?)`);
-    insert.run(fileName, timeUploaded, fileSize, JSON.stringify(processedLinks), fileSplitAmount, JSON.stringify(processedFileSplitNames));
+    insert.run(fileName, timeUploaded, fileSize, JSON.stringify(DiscordLink), fileSplitAmount, JSON.stringify(processedFileSplitNames));
 }
 
 
 export async function POST({ request }) {
+  client.login(DISCORD_TOKEN).catch(console.error);
   const formData = await request.formData();
   const file = formData.get('file');
   console.log("Got file");
@@ -114,7 +170,7 @@ export async function POST({ request }) {
     await pipe(file.stream(), fs.createWriteStream(uploadPath));
     console.log(`File saved to ${uploadPath}`);
 
-    await Split(uploadPath);
+    await processAndUpload(uploadPath, CHANNEL_ID);
     console.log('File split and uploaded to Discord.');
 
     return new Response('File uploaded and processed successfully.', { status: 200 });
@@ -123,4 +179,4 @@ export async function POST({ request }) {
   return new Response('No file uploaded.', { status: 400 });
 }
 
-client.login(DISCORD_TOKEN).catch(console.error);
+
