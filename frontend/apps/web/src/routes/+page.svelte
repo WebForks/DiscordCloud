@@ -24,6 +24,7 @@
 				DiscordLink: JSON.parse(file.DiscordLink),
 				FileSplitNames: JSON.parse(file.FileSplitNames)
 			}));
+			parsedData.reverse();
 			files.set(parsedData);
 		} else {
 			console.error('Failed to fetch files');

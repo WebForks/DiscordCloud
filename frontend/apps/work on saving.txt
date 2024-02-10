@@ -27,7 +27,7 @@ large file size and slow upload time
 
 DONE - add download button that will let you download  the saved files and piece together
 
-- add search bar to search files and add sort to sort files by numerical or filesize from greatest to least or least to greatest and time uploaded
+DONE - add search bar to search files and add sort to sort files by numerical or filesize from greatest to least or least to greatest and time uploaded
 
 - add delete button that deletes specific row from db or all row and deletes message from discord on the table page as an option
 
