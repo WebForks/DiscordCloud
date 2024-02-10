@@ -14,17 +14,18 @@ put back together
 
 DONE - find out how to get file attachment url that is uptodate from message link and then download file
 
-Done I think ??? added const client = new Client({
+
+Done with discordClientReady function- find out why client sometimes does not ready
+
+DONE - Done I think ??? added const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   rest: { timeout: 50_000 }
 });
-in /upload api +server.js
-- find out why client sometimes does not ready
-
+in /upload api +server.js due to slow wifi/uplaod speed???
 INCREASE restRequestTimeout in ClientOptions if you get RequestAbortedError [AbortError]: Request aborted.  Think it is caused by
 large file size and slow upload time
 
-- add download button that will let you download  the saved files and piece together
+DONE - add download button that will let you download  the saved files and piece together
 
 - add search bar to search files and add sort to sort files by numerical or filesize from greatest to least or least to greatest and time uploaded
 

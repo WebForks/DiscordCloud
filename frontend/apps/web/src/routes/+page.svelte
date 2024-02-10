@@ -1,5 +1,5 @@
 <script>
-	import { writable } from 'svelte/store';
+	import { writable, derived } from 'svelte/store';
 	import { onMount } from 'svelte';
 
 	let file; // The selected file
@@ -7,6 +7,12 @@
 	const uploadPercentage = writable(0); // Using a writable store for reactivity
 	let files = writable([]); // Store for the fetched files
 	let fileInput; // Reference to the file input element
+
+	const searchQuery = writable(''); // Store for the search query
+	// Derived store to filter files based on search query
+	const filteredFiles = derived([files, searchQuery], ([$files, $searchQuery]) =>
+		$files.filter((file) => file.FileName.toLowerCase().includes($searchQuery.toLowerCase()))
+	);
 
 	// Refactored fetching logic into a function
 	async function fetchFiles() {
@@ -122,6 +128,13 @@
 	>
 		Upload File
 	</button>
+
+	<input
+		type="text"
+		placeholder="Type here"
+		class="input input-bordered w-full max-w-xs mt-8"
+		on:input={($event) => searchQuery.set($event.target.value)}
+	/>
 </div>
 
 <!-- Table with white borders -->
@@ -141,7 +154,7 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each $files as file}
+			{#each $filteredFiles as file}
 				<tr class="hover:bg-slate-400">
 					<td class="border border-white px-2 py-1">{file.FileName}</td>
 					<td class="hidden sm:table-cell border border-white px-2 py-1">{file.TimeUploaded}</td>
