@@ -39,7 +39,7 @@ function getFileInfo(fileName, timeUploaded) {
     const stmt = db.prepare('SELECT * FROM Files WHERE FileName = ? AND TimeUploaded = ?');
     const fileInfo = stmt.get(fileName, timeUploaded);
     db.close();
-    console.log("fileInfo: ", fileInfo);
+    //console.log("fileInfo: ", fileInfo);
     return fileInfo;
 }
 // Create a promise that resolves when the Discord client is ready
@@ -82,7 +82,7 @@ async function getAttachmentUrlFromMessageUrl(messageUrl) {
         if (!message) throw new Error(`Message with ID ${messageId} could not be fetched.`);
         
         const attachmentUrls = message.attachments.map(attachment => attachment.url);
-        console.log("Attachment URLs:", attachmentUrls);
+        //console.log("Attachment URLs:", attachmentUrls);
         return attachmentUrls;
     } catch (error) {
         console.error("Error fetching attachment URLs:", error);
@@ -144,7 +144,7 @@ export async function GET({ url }) {
         const fileInfo = getFileInfo(fileName, timeUploaded);
         if (!fileInfo) throw error(404, 'File not found');
 
-        console.log("preparing to combineFile");
+        //console.log("preparing to combineFile");
         const combinedFileName = await downloadAndCombineFiles(JSON.parse(fileInfo.DiscordLink), fileName);
         console.log("file combined");
 

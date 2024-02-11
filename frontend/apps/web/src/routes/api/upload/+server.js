@@ -7,9 +7,9 @@ import Database from 'better-sqlite3';
 import {DISCORD_TOKEN,CHANNEL_ID,DB_PATH } from '$env/static/private';
 import { spawn } from 'child_process';
 
-console.log(DISCORD_TOKEN);
-console.log(CHANNEL_ID);
-console.log(DB_PATH);
+//console.log(DISCORD_TOKEN);
+//console.log(CHANNEL_ID);
+//console.log(DB_PATH);
 
 // 25165824
 const db = new Database(DB_PATH);
@@ -39,7 +39,7 @@ client.login(DISCORD_TOKEN).catch(console.error);
 
 async function uploadToDiscord(filePath, channelId) {
   try {
-      console.log("is client ready?", client.isReady());
+      //console.log("is client ready?", client.isReady());
       await discordClientReady;
 
       const channel = await client.channels.fetch(channelId);
