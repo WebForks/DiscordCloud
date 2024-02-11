@@ -130,6 +130,16 @@
 			console.error('Error deleting file:', error);
 		}
 	}
+
+	const totalStorageBytes = derived(files, ($files) =>
+		$files.reduce((total, file) => total + parseInt(file.FileSize, 10), 0)
+	);
+
+	// Convert total storage to gigabytes (GB) for display
+	const totalStorageGB = derived(
+		totalStorageBytes,
+		($totalStorageBytes) => ($totalStorageBytes / 1024 ** 3).toFixed(2) // Convert bytes to GB and fix to 2 decimal places
+	);
 </script>
 
 <!-- File Selection -->
@@ -150,6 +160,11 @@
 	>
 		Upload File
 	</button>
+
+	<div class="text-center my-4">
+		<h2 class="text-lg font-semibold">Total Storage Used</h2>
+		<p>{$totalStorageGB} GB</p>
+	</div>
 
 	<input
 		type="text"
